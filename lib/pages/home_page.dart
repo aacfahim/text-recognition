@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:gallery_picker/gallery_picker.dart';
 import 'package:gallery_picker/models/media_file.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:photo_view/photo_view.dart';
@@ -42,9 +43,7 @@ class _HomePageState extends State<HomePage> {
                   context: context, singleMedia: true);
               if (media != null && media.isNotEmpty) {
                 var data = await media.first.getFile();
-                setState(() {
-                  selectedMedia = data;
-                });
+                await _cropImage(data);
               }
             },
           ),
@@ -56,15 +55,45 @@ class _HomePageState extends State<HomePage> {
               final XFile? photo =
                   await _picker.pickImage(source: ImageSource.camera);
               if (photo != null) {
-                setState(() {
-                  selectedMedia = File(photo.path);
-                });
+                await _cropImage(File(photo.path));
               }
             },
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _cropImage(File imageFile) async {
+    CroppedFile? croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Cropper',
+          toolbarColor: Colors.deepOrange,
+          toolbarWidgetColor: Colors.white,
+          aspectRatioPresets: [
+            CropAspectRatioPreset.original,
+            CropAspectRatioPreset.square,
+            CropAspectRatioPresetCustom(),
+          ],
+        ),
+        IOSUiSettings(
+          title: 'Cropper',
+          aspectRatioPresets: [
+            CropAspectRatioPreset.original,
+            CropAspectRatioPreset.square,
+            CropAspectRatioPresetCustom(), // IMPORTANT: iOS supports only one custom aspect ratio in preset list
+          ],
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
+      setState(() {
+        selectedMedia = File(croppedFile.path);
+      });
+    }
   }
 
   Widget _buildUI() {
@@ -159,4 +188,12 @@ class FullScreenImageView extends StatelessWidget {
       ),
     );
   }
+}
+
+class CropAspectRatioPresetCustom implements CropAspectRatioPresetData {
+  @override
+  (int, int)? get data => (2, 3);
+
+  @override
+  String get name => '2x3 (customized)';
 }
